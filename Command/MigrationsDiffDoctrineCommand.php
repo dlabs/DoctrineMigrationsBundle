@@ -39,13 +39,25 @@ class MigrationsDiffDoctrineCommand extends DiffCommand
         ;
     }
 
+    protected $excludeParameterName = 'doctrine_migrations.exclude_entity_managers';
+
     public function execute(InputInterface $input, OutputInterface $output)
     {
-        DoctrineCommandHelper::setApplicationEntityManager($this->getApplication(), $input->getOption('em'));
+        $entityManagers = $this->getEntityManagers();
 
-        $configuration = $this->getMigrationConfiguration($input, $output);
-        DoctrineCommand::configureMigrations($this->getApplication()->getKernel()->getContainer(), $configuration);
+        foreach ($entityManagers as $entityManagerName=>$service) {
 
-        parent::execute($input, $output);
+            $input->setOption('em', $entityManagerName);
+
+            $this->resetMigrationConfiguration();
+
+            DoctrineCommandHelper::setApplicationEntityManager($this->getApplication(), $entityManagerName);
+
+            $configuration = $this->getMigrationConfiguration($input, $output);
+
+            DoctrineCommand::configureMigrations($this->getContainer(), $configuration);
+
+            parent::execute($input, $output, $entityManagerName);
+        }
     }
 }

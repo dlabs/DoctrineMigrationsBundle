@@ -19,6 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Doctrine\Bundle\DoctrineBundle\Command\Proxy\DoctrineCommandHelper;
 use Doctrine\DBAL\Migrations\Tools\Console\Command\MigrateCommand;
+use Doctrine\DBAL\Migrations\Configuration\Configuration;
 
 /**
  * Command for executing a migration to a specified version or the latest available version.
@@ -38,13 +39,45 @@ class MigrationsMigrateDoctrineCommand extends MigrateCommand
         ;
     }
 
+    protected $excludeParameterName = 'doctrine_migrations.exclude_entity_managers';
+
     public function execute(InputInterface $input, OutputInterface $output)
     {
-        DoctrineCommandHelper::setApplicationEntityManager($this->getApplication(), $input->getOption('em'));
+        $entityManagers = $this->getEntityManagers();
 
-        $configuration = $this->getMigrationConfiguration($input, $output);
-        DoctrineCommand::configureMigrations($this->getApplication()->getKernel()->getContainer(), $configuration);
+        foreach ($entityManagers as $entityManagerName=>$service) {
 
-        parent::execute($input, $output);
+            $input->setOption('em', $entityManagerName);
+            $this->currentEM = $entityManagerName;
+
+            $this->resetMigrationConfiguration();
+
+            DoctrineCommandHelper::setApplicationEntityManager($this->getApplication(), $entityManagerName);
+
+            $configuration = $this->getMigrationConfiguration($input, $output);
+
+            DoctrineCommand::configureMigrations($this->getContainer(), $configuration);
+
+            parent::execute($input, $output, $entityManagerName);
+        }
+    }
+
+    protected $currentEM = '';
+
+    /**
+     * Lets us know in the header which EM are we currently using
+     *
+     * @param Configuration   $configuration
+     * @param OutputInterface $output
+     */
+    protected function outputHeader(Configuration $configuration, OutputInterface $output)
+    {
+        $name = $configuration->getName().' - Current EM: ['.$this->currentEM.']';
+        $name = $name ? $name : 'Doctrine Database Migrations';
+        $name = str_repeat(' ', 20) . $name . str_repeat(' ', 20);
+        $output->writeln('<question>' . str_repeat(' ', strlen($name)) . '</question>');
+        $output->writeln('<question>' . $name . '</question>');
+        $output->writeln('<question>' . str_repeat(' ', strlen($name)) . '</question>');
+        $output->writeln('');
     }
 }

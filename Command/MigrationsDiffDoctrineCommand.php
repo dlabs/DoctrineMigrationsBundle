@@ -45,6 +45,11 @@ class MigrationsDiffDoctrineCommand extends DiffCommand
     {
         $entityManagers = $this->getEntityManagers();
 
+        //this is a hack as migrations for other DBs are done in access-layer
+        // we need bof2 to handle only platform DB/domain
+        $defaultEntityManager = isset($entityManagers['default']) ? $entityManagers['default'] : null;
+        $entityManagers = ['default' => $defaultEntityManager];
+
         foreach ($entityManagers as $entityManagerName=>$service) {
 
             $input->setOption('em', $entityManagerName);
